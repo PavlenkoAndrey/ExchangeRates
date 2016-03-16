@@ -10,7 +10,5 @@ public interface CurrencyDao {
 
 	void delete(String code);
 
-	//Currency getCurrencyByID(int id);
-
 	List<Currency> getCurrencyList();
 }

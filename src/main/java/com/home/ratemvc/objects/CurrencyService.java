@@ -2,19 +2,21 @@ package com.home.ratemvc.objects;
 import org.w3c.dom.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-
 import static java.util.Arrays.asList;
-
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.dao.DataAccessException;
 
 import com.home.ratemvc.impls.SQLiteDAO;
 import com.home.ratemvc.objects.Currency;
@@ -22,152 +24,127 @@ import com.home.ratemvc.objects.Currency;
 
 public class CurrencyService {
 	
-	static final String RUSSIAN_CURRENCY = "RUR";
-	static private String sourceDailyXM    = "http://www.cbr.ru/scripts/XML_daily.asp";
-	static private String sourceDynamicXMLPattern = "http://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=dateFrom&date_req2=dateTo&VAL_NM_RQ=curID";
-
-	static private List<String> baseCurencies = asList("RUR", "USD", "EUR");
-	static private HashMap<String, String> allCurenciesTable = new HashMap<String, String>();
-	private static ArrayList<Currency> userCurrencies = new ArrayList<Currency>(); //(Arrays.asList(new Currency("USD", "Dollar USA"), new Currency("EUR", "European currency"), new Currency("RUR", "Russian ruble")));	
-	static private LinkedHashSet<String> availableCurrenciesSet = new LinkedHashSet<String>();
+	private static final Logger logger = LoggerFactory.getLogger(CurrencyService.class);
 	
-	static SQLiteDAO sqLiteDAO;
+	private static final String RUSSIAN_CURRENCY = "RUR";
+	private static String sourceDailyXM    = "http://www.cbr.ru/scripts/XML_daily.asp";
+	private static String sourceDynamicXMLPattern = "http://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=dateFrom&date_req2=dateTo&VAL_NM_RQ=curID";
+
+	// Data base to store user defined currencies
+	public static SQLiteDAO sqLiteDAO;
+	
+	// All existing currency is loaded at the beginning of the program
+	private static final TreeMap<String, String> allCurenciesTable;
+	// We can see the exchange rates relative to RUR, USD, EUR
+	private static final List<String> baseCurrencies = asList("RUR", "USD", "EUR");
+	
+	// User defined currencies
+	//private static ArrayList<Currency> userCurrencies = new ArrayList<Currency>();
+	//static private HashMap<String, String> userCurrencies = new HashMap<String, String>();
+	static private TreeMap<String, String> userCurrencies = new TreeMap<String, String>();
+	// Currencies is not included in the userCurrencies list
+	private static LinkedHashSet<String> availableCurrencies = new LinkedHashSet<String>();
+	
 	static {
+		// Data base initialization
 		ApplicationContext context = new ClassPathXmlApplicationContext("context.xml");
-		sqLiteDAO = (SQLiteDAO) context.getBean("sqliteDAO");
-		//new SQLiteDAO().insertWithJDBC(currency);
-		// Initialization allCurenciesTable 
-		allCurenciesTable.put("RUR", "R01239");
-		FillAllCurenciesTable();
-		//FillCurrencyForDate();
-		// Initialization availableCurrenciesTable. Contains allCurenciesTable without userCurrencies
-	    //for(Map.Entry<String, String> entry : allCurenciesTable.entrySet()) {
-	    //	availableCurrenciesSet.add(entry.getKey());
-	    //}
+		try {
+			sqLiteDAO = (SQLiteDAO) context.getBean("sqliteDAO");
+		} catch(DataAccessException ex) {
+			System.out.println("DataAccessException:" + ex.getMessage());
+		} catch(Throwable ex) {
+			System.out.println("Throwable:" + ex.getMessage());
+		}
+		
+		// Collections initialization
+		allCurenciesTable = AllCurrenciesTableInitialization();
+
 		for(String code : allCurenciesTable.keySet() ) {
-			availableCurrenciesSet.add(code);
+			availableCurrencies.add(code);
 		}
-		for (Currency currency : userCurrencies) {
-			availableCurrenciesSet.remove(currency.getCode());
-		}
-		List<Currency> list = sqLiteDAO.findAll2();
+		
+		List<Currency> list = sqLiteDAO.getCurrencyList();
 		for (Currency currency : list) {
-			userCurrencies.add(currency);
-			availableCurrenciesSet.remove(currency.getCode());
+			userCurrencies.put(currency.getCode(), currency.getDescription());
+			availableCurrencies.remove(currency.getCode());
 		}
-		
 	}
 	
-
-	public static LinkedHashSet<String> getAvailableCurrenciesSet() {
-		return availableCurrenciesSet;
-	}
-
 	public static List<String> getBaseCurrencies() {
-		return baseCurencies;
+		return baseCurrencies;
 	}
 
-	//static public GetAvailableCurrencies() {		
-	//}
-	
-	private void LoadUserCurrencies() {
-		
+	public Set<Entry<String, String>> getUserCurrenciesEntries() {
+		return userCurrencies.entrySet();
 	}
 	
-	public List<Currency> getUserCurrencies() {
-		return userCurrencies;
+	public LinkedHashSet<String> getAvailableCurrencies() {
+		return availableCurrencies;
+	}
+
+	public Set<String> getUserCurrenciesCodes() {
+		return userCurrencies.keySet();
 	}
 	
-	public ArrayList<String> getUserCurrenciesCodes() {
-		ArrayList<String> list = new ArrayList<String>();
-		for(Currency item : userCurrencies) {
-			list.add(item.getCode());
-		}
-		return list;
+	public String GetUserCurrencyDescription(String code) {
+		return userCurrencies.get(code);
 	}
 	
 	public void AddCurrency(Currency currency) {
 		if (!allCurenciesTable.containsKey(currency.getCode())) {
 			return;
 		}
-		for (Currency cur: userCurrencies) {
-			if (cur.getCode().equals(currency.getCode())) {
-				cur.setDescription(currency.getDescription());
-				sqLiteDAO.delete(currency.getCode());
-				sqLiteDAO.insert(currency);
-				return;
-			}
+		if (userCurrencies.containsKey(currency.getCode())) {
+			userCurrencies.put(currency.getCode(), currency.getDescription());
+			sqLiteDAO.delete(currency.getCode());
+			sqLiteDAO.insert(currency);
+			
+		} else {
+			userCurrencies.put(currency.getCode(), currency.getDescription());
+			sqLiteDAO.insert(currency);
+			availableCurrencies.remove(currency.getCode());
 		}
-		userCurrencies.add(currency);
-		sqLiteDAO.insert(currency);
-		availableCurrenciesSet.remove(currency.getCode());
 	}
 
 	public void DeleteCurrency(String code) {
-		Iterator<Currency> iter = userCurrencies.iterator();
-		while (iter.hasNext()) {
-			Currency currency = iter.next();
-			if (currency.getCode().equals(code)) {
-				iter.remove();
-				sqLiteDAO.delete(code);
-				availableCurrenciesSet.add(code);
-				return;
-			}
+		if (userCurrencies.containsKey(code)) {
+			userCurrencies.remove(code);
+			sqLiteDAO.delete(code);
+			availableCurrencies.add(code);
 		}
 	}
-	
-	public Currency getUserCurrencyByCode(String code) {
-		Iterator<Currency> iter = userCurrencies.iterator();
-		while (iter.hasNext()) {
-			Currency currency = iter.next();
-			if (currency.getCode().equals(code)) {
-				return new Currency(currency.getCode(), currency.getDescription());
-			}
-		}
-		return null;
-	}
-	
-	public void Print() {
-		for (Currency cur: userCurrencies) {
-			System.out.println(cur.getCode() + "," + cur.getDescription() + "; ");
-		}
-		System.out.println();
-	}
-	
+
 	public ArrayList<String> GetRatesForPeriod(String userCurrency, String baseCurrency, String dateFrom, String dateTo) {
 		//
-		ArrayList<CurrencyRate> userRates = GetRatesForPeriod(userCurrency, dateFrom, dateTo);
-		ArrayList<CurrencyRate> baseRates = GetRatesForPeriod(baseCurrency, dateFrom, dateTo);
-		ArrayList<CurrencyRate> arrayRates = (userRates != null) ? userRates : baseRates;
-		if (arrayRates == null) {
+		if (!baseCurrencies.contains(baseCurrency) || !userCurrencies.containsKey(userCurrency)) {
 			return null;
 		}
+
+		ArrayList<CurrencyRate> userRates = GetRatesForPeriod(userCurrency, dateFrom, dateTo);
+		ArrayList<CurrencyRate> baseRates = GetRatesForPeriod(baseCurrency, dateFrom, dateTo);
 		ArrayList<String> ratesUserToBase = new ArrayList<String>();
-		for(int i = 0; i < arrayRates.size(); ++i) {
+		for(int i = 0; i < baseRates.size(); ++i) {
 			double userValue = !userCurrency.equals(RUSSIAN_CURRENCY) ? Double.parseDouble(userRates.get(i).getValue()) : 1;  
 			double baseValue = !baseCurrency.equals(RUSSIAN_CURRENCY) ? Double.parseDouble(baseRates.get(i).getValue()) : 1;
 			double rate = userValue / baseValue;
-			ratesUserToBase.add(String.format("%s   %.4f", arrayRates.get(i).getDate(), rate));
+			ratesUserToBase.add(String.format("%s:   %.4f", baseRates.get(i).getDate(), rate));
 		}
 		return ratesUserToBase;
 	}
 	
-    //static private void FillRatesForPeriod(){	
 	public ArrayList<CurrencyRate> GetRatesForPeriod(String currencyCode, String dateFrom, String dateTo) {
 		if (!allCurenciesTable.containsKey(currencyCode)) {
 			return null; 
 		}
-		System.out.println(currencyCode + ", " + allCurenciesTable.get(currencyCode));
+		logger.debug("GetRatesForPeriod: " + currencyCode + ", " + allCurenciesTable.get(currencyCode));
 		ArrayList<CurrencyRate> list = new ArrayList<CurrencyRate>();
 		String sourceDynamicXML = sourceDynamicXMLPattern.replace("dateFrom",dateFrom).replace("dateTo", dateTo).replace("curID", allCurenciesTable.get(currencyCode));
-		System.out.println(sourceDynamicXML);
         try {
             DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             InputStream stream = new URL(sourceDynamicXML).openStream();
           
             Document document = builder.parse(stream);
             Element valCurs = document.getDocumentElement();
-            // System.out.println(valCurs.getAttribute("Date"));
             NodeList valuteList = valCurs.getChildNodes();
             for(int i=0; i < valuteList.getLength(); ++i) {
                 Node valute = valuteList.item(i);
@@ -188,26 +165,26 @@ public class CurrencyService {
                         }
                     }
                     list.add(new CurrencyRate(date, currencyRate));
-                    //allCurenciesTable.put(currencyCode, currencyID);
-                    //System.out.println(date + ": " + currencyRate);
-                }
+                 }
             }
             stream.close();
         } catch (Exception e){
-            // e.printStackTrace();
+            e.printStackTrace();
         }
         return list;
     }
 	
-    static private void FillAllCurenciesTable(){
-        try {
+    static private TreeMap<String, String> AllCurrenciesTableInitialization(){
+    	TreeMap<String, String> allCurrencies = new TreeMap<String, String>();
+    	allCurrencies.put(RUSSIAN_CURRENCY, "R01239"); // EUR
+
+    	try (InputStream stream = new URL(sourceDailyXM).openStream();)
+        {
             DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-            InputStream stream = new URL(sourceDailyXM).openStream();
           
             Document document = builder.parse(stream);
             Element valCurs = document.getDocumentElement();
-            // System.out.println(valCurs.getAttribute("Date"));
-            NodeList valuteList = valCurs.getChildNodes();
+             NodeList valuteList = valCurs.getChildNodes();
             for(int i=0; i < valuteList.getLength(); ++i) {
                 Node valute = valuteList.item(i);
                 if(valute instanceof Element){
@@ -226,14 +203,14 @@ public class CurrencyService {
                             }
                         }
                     }
-                    allCurenciesTable.put(currencyCode, currencyID);
-                    //System.out.println(currencyCode + ": " + currencyID);
-                }
+                    allCurrencies.put(currencyCode, currencyID);
+                 }
             }
             stream.close();
         } catch (Exception e){
-            // e.printStackTrace();
+            e.printStackTrace();
         }
+        return allCurrencies;
     }
 	
 }

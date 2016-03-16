@@ -1,16 +1,18 @@
 package com.home.ratemvc.models;
 
+import javax.validation.constraints.Pattern;
 import com.home.ratemvc.objects.Currency;
 
 public class HomeModel {
-	Currency currency;
-	Currency currencyEdit;
-	String dateFrom; // private 
-	String dateTo;
-	String selectedBaseCurrency;
-	String selectedUserCurrency;
-	//String selectedAvailableCurrency;
-	//String baseCurencies;
+	private Currency currency;
+	private Currency currencyEdit;
+	private String dateTo;
+	@Pattern(regexp = "^(0[1-9]|1[012])\\.(0[1-9]|1[0-9]|2[0-9]|3[01])\\.[0-9]{4}$", message = "[Correct format date dd.mm.yyyy]")
+	private String dateFrom; 
+	@Pattern(regexp = "^(0[1-9]|1[012])\\.(0[1-9]|1[0-9]|2[0-9]|3[01])\\.[0-9]{4}$", message = "[Correct format date dd.mm.yyyy]")
+	private String selectedBaseCurrency;
+	private String selectedUserCurrency;
+	private boolean cacheData;
 	
 	public HomeModel() {
 		currency = new Currency();
@@ -67,5 +69,15 @@ public class HomeModel {
 	public void setSelectedUserCurrency(String selectedUserCurrency) {
 		this.selectedUserCurrency = selectedUserCurrency;
 	}
+
+	public boolean isCacheData() {
+		return cacheData;
+	}
+
+	public void setCacheData(boolean cacheData) {
+		this.cacheData = cacheData;
+	}
+	
+	
 
 }

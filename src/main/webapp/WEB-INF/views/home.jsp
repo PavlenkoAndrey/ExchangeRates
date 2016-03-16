@@ -8,7 +8,7 @@
 </head>
 <body>
 
-<form:form method="POST" commandName="homeModel" action="" > <!-- action="edit-currency" -->
+<form:form method="POST" commandName="homeModel" > <!-- action="" action="edit-currency" action="addcurrency"  -->
 
 	<h2  align="center">Exchange rates</h2>
 
@@ -21,9 +21,9 @@
 		<form:label path="currency.description">Description:</form:label>
 		<form:input path="currency.description"/>
 
-		<input type="submit" value="Add" name = "action_1" tabindex="3" >
+		<input type="submit" value="Add" name = "action_1" tabindex="3"  >
 	</fieldset>
-
+	
 	<fieldset>
 		<form:label path="currencyEdit.code">To edit:</form:label>
 		<form:select path="currencyEdit.code">
@@ -36,12 +36,11 @@
 		<input type="submit" value="Delete" name = "action_2" tabindex="2" >
 	</fieldset>
 	
-
 	<h3>Currencies list:</h3>
 	<c:if test="${not empty currencies}">
 		<ul>
-			<c:forEach var="cur" items="${currencies}">
-				<li>${cur.code}   ${cur.description}</li>
+			<c:forEach var="entry" items="${currencies}">
+				<li>${entry.getKey()}: ${entry.getValue()}</li>
 			</c:forEach>		
 		</ul>
 	</c:if>
@@ -49,9 +48,11 @@
 	<fieldset>
 		<form:label path="dateFrom">From date:</form:label>
 		<form:input path="dateFrom" />
+		<form:errors path="dateFrom"/>
 
 		<form:label path="dateTo">To date:</form:label>
 		<form:input path="dateTo"/>
+		<form:errors path="dateTo" />
 	</fieldset>
 
 	<fieldset>
@@ -64,7 +65,9 @@
 			<form:options items="${baseCurrencies}" />
 		</form:select>
 
-		<input type="submit" value="Request" name = "action_5" tabindex="5">
+		<input type="submit" value="Request Rate" name = "action_5" tabindex="5">
+		<form:checkbox path="cacheData" value="Cache data"/>
+		<form:label path="cacheData">Cache data</form:label>
 	</fieldset>
 	
 	<h3>Exchange rate for the period:</h3>
