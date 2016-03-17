@@ -5,10 +5,7 @@ import java.util.List;
 import com.home.ratemvc.objects.Currency;
 
 public interface CurrencyDao {
-
-	void insert(Currency currency);
-
-	void delete(String code);
-
-	List<Currency> getCurrencyList();
+	public void insert(Currency currency);
+	public void delete(String code);
+	public List<Currency> getCurrencyList();
 }

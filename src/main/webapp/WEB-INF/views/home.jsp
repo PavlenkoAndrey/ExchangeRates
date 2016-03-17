@@ -12,6 +12,8 @@
 
 	<h2  align="center">Exchange rates</h2>
 
+	<form:input size="80" path="errorMessage" cssStyle="color: #ff0000;"/>
+
 	<fieldset>
 		<form:label path="currency.code">To add:</form:label>
 		<form:select path="currency.code">
@@ -36,7 +38,7 @@
 		<input type="submit" value="Delete" name = "action_2" tabindex="2" >
 	</fieldset>
 	
-	<h3>Currencies list:</h3>
+	<h3>User currencies list:</h3>
 	<c:if test="${not empty currencies}">
 		<ul>
 			<c:forEach var="entry" items="${currencies}">
@@ -48,11 +50,11 @@
 	<fieldset>
 		<form:label path="dateFrom">From date:</form:label>
 		<form:input path="dateFrom" />
-		<form:errors path="dateFrom"/>
+		<form:errors path="dateFrom" cssStyle="color: #ff0000;"/>
 
 		<form:label path="dateTo">To date:</form:label>
 		<form:input path="dateTo"/>
-		<form:errors path="dateTo" />
+		<form:errors path="dateTo" cssStyle="color: #ff0000;" />
 	</fieldset>
 
 	<fieldset>
@@ -66,8 +68,6 @@
 		</form:select>
 
 		<input type="submit" value="Request Rate" name = "action_5" tabindex="5">
-		<form:checkbox path="cacheData" value="Cache data"/>
-		<form:label path="cacheData">Cache data</form:label>
 	</fieldset>
 	
 	<h3>Exchange rate for the period:</h3>

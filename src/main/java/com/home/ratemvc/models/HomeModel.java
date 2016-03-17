@@ -2,17 +2,18 @@ package com.home.ratemvc.models;
 
 import javax.validation.constraints.Pattern;
 import com.home.ratemvc.objects.Currency;
+import com.home.ratemvc.objects.CurrencyDataReceiver;
 
 public class HomeModel {
 	private Currency currency;
 	private Currency currencyEdit;
+	@Pattern(regexp = CurrencyDataReceiver.regexpDatePattern, message = "Incorrect date format: dd.mm.yyyy")
 	private String dateTo;
-	@Pattern(regexp = "^(0[1-9]|1[012])\\.(0[1-9]|1[0-9]|2[0-9]|3[01])\\.[0-9]{4}$", message = "[Correct format date dd.mm.yyyy]")
+	@Pattern(regexp = CurrencyDataReceiver.regexpDatePattern, message = "Incorrect date format: dd.mm.yyyy")
 	private String dateFrom; 
-	@Pattern(regexp = "^(0[1-9]|1[012])\\.(0[1-9]|1[0-9]|2[0-9]|3[01])\\.[0-9]{4}$", message = "[Correct format date dd.mm.yyyy]")
 	private String selectedBaseCurrency;
 	private String selectedUserCurrency;
-	private boolean cacheData;
+	private String errorMessage;
 	
 	public HomeModel() {
 		currency = new Currency();
@@ -70,14 +71,12 @@ public class HomeModel {
 		this.selectedUserCurrency = selectedUserCurrency;
 	}
 
-	public boolean isCacheData() {
-		return cacheData;
+	public String getErrorMessage() {
+		return errorMessage;
 	}
 
-	public void setCacheData(boolean cacheData) {
-		this.cacheData = cacheData;
+	public void setErrorMessage(String errorMessage) {
+		this.errorMessage = errorMessage;
 	}
 	
-	
-
 }
