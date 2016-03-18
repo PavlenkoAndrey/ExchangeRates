@@ -14,53 +14,56 @@ public class CurrencyDataReceiverHash extends CurrencyDataReceiver {
 	
 	public ArrayList<CurrencyRate> GetRatesForPeriod(String currencyID, String dateFrom, String dateTo) throws DataReceiverException, InputDataException {
 		try {
-			if (CompareDates(dateFrom, dateTo) == false) {
-				throw new InputDataException("DateTo should be after DateFrom.");
+			if (!dateFrom.equals(dateTo) && CompareDates(dateFrom, dateTo) == false) {
+				throw new InputDataException("DateTo should not be before DateFrom.");
 			}
 			HashMap<String, Double> hashMap = GetHashMapByCurrencyID(currencyID);
 			ArrayList<CurrencyRate> ratesList = new ArrayList<CurrencyRate>();
 			DateIterator dateIterator = new DateIterator(dateFrom, dateTo);
 			
+			FillRatesList:
 			for(String date : dateIterator) {
 				System.out.println(date);
 				// Determine caching data and add caching data to ratesList
-				dateIterator.prev();
-				while (dateIterator.hasNext() && hashMap.containsKey(date = dateIterator.next())) {
+				while (hashMap.containsKey(date)) {
 					Double value = hashMap.get(date);
 					if (value != null) {
 						ratesList.add(new CurrencyRate(date, value, true));
 						System.out.println("added from cache " +  date + ": " + value);
 					}
-				}
-				if (!dateIterator.hasNext()) {
-					break;
+					if (!dateIterator.hasNext()) {
+						break FillRatesList;
+					}
+					date = dateIterator.next();
 				}
 				// Determine data not cached
 				String dateBegin = date;
-				while (dateIterator.hasNext() && !hashMap.containsKey(date)) {
+				while (dateIterator.hasNext() && !hashMap.containsKey(dateIterator.getNext())) {
 					date = dateIterator.next();
 				}
-				if (dateIterator.hasNext()) {
-					date = dateIterator.prev();
-				}
-				String dateLast = date;
-				String dateEnd = dateIterator.next();
-				
 				// Get data from server
-				ArrayList<CurrencyRate> tempList = super.GetRatesForPeriod(currencyID, dateBegin, dateLast);
-				if (tempList != null && !tempList.isEmpty()) {
+				ArrayList<CurrencyRate> addToHashList = super.GetRatesForPeriod(currencyID, dateBegin, date);
+				if (addToHashList != null && !addToHashList.isEmpty()) {
 					// Add data to ratesList
-					ratesList.addAll(tempList);
-					for(CurrencyRate currency : tempList) {System.out.println("added from server " +  currency.toString());}
+					ratesList.addAll(addToHashList);
+					for(CurrencyRate currency : addToHashList) {System.out.println("added from server " +  currency.toString());}
 					// Add data to cache
-					int i = 0;
-					for(date = dateIterator.set(dateBegin); !date.equals(dateEnd) && (i < tempList.size()); date = dateIterator.next()) {
-						Double value = date.equals(tempList.get(i).getDate()) ? tempList.get(i++).getValue() : null;
-						hashMap.put(date, value);
-						System.out.println("cached " +  date + ":" + value);					
+					Iterator<CurrencyRate> itAddToHashList = addToHashList.iterator();
+					CurrencyRate currencyRateCurrent = itAddToHashList.next();
+					DateIterator dateIteratorHash = new DateIterator(dateBegin, date);
+					for (String dateHash : dateIteratorHash) {
+						// For days when data are not available (it can be the weekend or holidays) to add null to the cache
+						Double value = null;
+						if (dateHash.equals(currencyRateCurrent.getDate())) {
+							value = currencyRateCurrent.getValue();
+							if (itAddToHashList.hasNext()) {
+								currencyRateCurrent = itAddToHashList.next();
+							}
+						}
+						hashMap.put(dateHash, value);
+						// System.out.println("cached " +  dateHash + ": " + value);					
 					}
 				}
-				date = dateIterator.set(dateLast);
 			}
 			return ratesList;
 		}
@@ -85,36 +88,34 @@ public class CurrencyDataReceiverHash extends CurrencyDataReceiver {
 	private class DateIterator implements Iterable<String>, Iterator<String> {
 		private final Calendar calendar;
 		private final SimpleDateFormat dateFormat;
-		private final String dateTo; // date
-		private String currentDate;
+		private final String dateEnd;
+		private String nextDate;
 		public DateIterator(String dateFrom, String dateTo) throws ParseException {
-			this.dateTo   = dateTo;
-			dateFormat    = new SimpleDateFormat("dd.MM.yyyy");   
-			calendar      = Calendar.getInstance();    
+			dateFormat    = new SimpleDateFormat("dd.MM.yyyy");
+			calendar      = Calendar.getInstance();
+			calendar.setTime(dateFormat.parse(dateTo));
+			calendar.add(Calendar.DATE, 1);
+			this.dateEnd  = dateFormat.format(calendar.getTime());
 			calendar.setTime(dateFormat.parse(dateFrom));
-			calendar.add(Calendar.DATE, -1);
-			currentDate = dateFormat.format(calendar.getTime());
+			nextDate = dateFormat.format(calendar.getTime());
 		}
 		@Override		
 		public boolean hasNext() {
-			return !currentDate.equals(dateTo);
+			return !nextDate.equals(dateEnd);
 		}
 		@Override		
 		public String next() {
+			String tempDate = dateFormat.format(calendar.getTime());
 			calendar.add(Calendar.DATE, 1);
-			return currentDate = dateFormat.format(calendar.getTime());
+			nextDate = dateFormat.format(calendar.getTime());
+			return tempDate;
 		}
-		public String prev() {
-			calendar.add(Calendar.DATE, -1);
-			return currentDate = dateFormat.format(calendar.getTime());
+		public String getNext() {
+			return nextDate;
 		}
 		@Override
 		public Iterator<String> iterator() {
 			return this;
-		}
-		public String set(String date) throws ParseException {
-			calendar.setTime(dateFormat.parse(date));
-			return currentDate = dateFormat.format(calendar.getTime());
 		}
 	}
 

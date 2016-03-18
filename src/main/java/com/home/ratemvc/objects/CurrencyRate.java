@@ -21,7 +21,8 @@ public class CurrencyRate {
 	
 	
 	public String toString() {
-		return date + ": " + String.format(new Locale("ru"), "%4f", value);
+		String scached = cached?"*":" ";
+		return date + scached + ":" + String.format(new Locale("ru") ,"%4f", value) + scached;
 	}
 	
 	public String getDate() {
